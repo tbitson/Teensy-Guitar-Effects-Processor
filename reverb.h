@@ -18,6 +18,7 @@
 void initReverb();
 void disableReverb();
 void enableReverb();
+void printReverbConfig();
 void convertReverbToSliders();
 void convertSlidersToReverb();
 void updateReverbSettings();
@@ -27,16 +28,15 @@ bool checkEncoders2(uint8_t);
 
 
 // constants
-#define NUM_GUI_ITEMS 3
-
+#define NUM_REVERB_ITEMS 3
 
 
 // global vars
-int16_t selectedUiItem = 0;
-int16_t lastselectedUiItem = 0;
-bool selectedUiItemChanged = false;
-bool UiItemValueChanged = false;
-float sliderVal[NUM_GUI_ITEMS];
+int16_t selectedReverbItem = 0;
+int16_t lastselectedReverbItem = 0;
+bool selectedReverbItemChanged = false;
+bool reverbItemValueChanged = false;
+float reverbSliderPos[NUM_REVERB_ITEMS];
 
 boolean reverbActive     = false;
 
@@ -48,14 +48,15 @@ void initReverb()
 {
   updateReverbSettings();
   disableReverb();
-  
+
   Serial.println("Reverb Initialized");
 }
 
 
-void disableReverb()
+void disableReverb()  // bypass reverb
 {
-  mixer1.gain(REVERB, 0);
+  mixer3.gain(WET_NO_REVERB_CH, 1.0);
+  mixer3.gain(WET_REVERB, 0);
   reverbActive = false;
   Serial.println("Reverb Disabled");
 }
@@ -63,11 +64,29 @@ void disableReverb()
 
 void enableReverb()
 {
-  mixer1.gain(REVERB, cfg.reverbVolume);
+  mixer3.gain(WET_NO_REVERB_CH, 0);
+  mixer3.gain(WET_REVERB, cfg.reverbVolume);
   reverbActive = true;
   Serial.println("Reverb Enabled");
 }
 
+
+void toggleReverb()
+{
+  if (reverbActive)
+    disableReverb();
+  else
+    enableReverb();
+}
+
+
+
+void printReverbConfig()
+{
+  Serial.print(F("Reverb Volume   = "));  Serial.println(cfg.reverbVolume);
+  Serial.print(F("Reverb Roomsize = "));  Serial.println(cfg.reverbRoomsize);
+  Serial.print(F("Reverb Damping  = "));  Serial.println(cfg.reverbDamping);
+}
 
 
 void updateReverbSettings()
@@ -75,10 +94,15 @@ void updateReverbSettings()
   freeverb1.roomsize(cfg.reverbRoomsize);
   freeverb1.damping(cfg.reverbDamping);
   if (reverbActive)
-    mixer1.gain(REVERB, cfg.reverbVolume);
+  {
+    mixer3.gain(WET_REVERB, cfg.reverbVolume);
+    mixer3.gain(WET_NO_REVERB_CH, 0);
+  }
   else
-    mixer1.gain(REVERB, 0);
-
+  {
+    mixer3.gain(WET_REVERB, 0);
+    mixer3.gain(WET_NO_REVERB_CH, 1.0);
+  }
   Serial.println("Reverb Settings Updated");
 }
 
@@ -87,18 +111,18 @@ void updateReverbSettings()
 // main reverb screen loop
 void doReverbScreen()
 {
-  selectedUiItemChanged = false;
-  UiItemValueChanged = false;
+  selectedReverbItemChanged = false;
+  reverbItemValueChanged = false;
 
   // set the sliders values to the current stored eq settings
   if (!initialScreenDrawn)
     convertReverbToSliders();
 
   // read encoders and check for changes
-  checkEncoders(NUM_GUI_ITEMS);
+  checkEncoders2(NUM_REVERB_ITEMS);
 
   // draw the screen
-  if (selectedUiItemChanged || UiItemValueChanged || !initialScreenDrawn)
+  if (selectedReverbItemChanged || reverbItemValueChanged || !initialScreenDrawn)
   {
     convertSlidersToReverb();
     drawReverbScreen();
@@ -112,12 +136,12 @@ void doReverbScreen()
 
 
 
-void convertReverbToSliders() // updateSliderValues()
+void convertReverbToSliders() // updatereverbSliderPosues()
 {
   // convert reverb values 0.0 to 1.0 to slider value 0 to 100.0
-  sliderVal[0] = cfg.reverbVolume   * 100.0;
-  sliderVal[1] = cfg.reverbRoomsize * 100.0;
-  sliderVal[2] = cfg.reverbDamping  * 100.0;
+  reverbSliderPos[0] = cfg.reverbVolume   * 100.0;
+  reverbSliderPos[1] = cfg.reverbRoomsize * 100.0;
+  reverbSliderPos[2] = cfg.reverbDamping  * 100.0;
 }
 
 
@@ -126,9 +150,9 @@ void convertReverbToSliders() // updateSliderValues()
 void convertSlidersToReverb() //  updateEqValues()
 {
   // convert slider 0 to 100.0 to reverb values 0.0 to 1.0
-  cfg.reverbVolume   = sliderVal[0] / 100.0;
-  cfg.reverbRoomsize = sliderVal[1] / 100.0;
-  cfg.reverbDamping  = sliderVal[2] / 100.0;
+  cfg.reverbVolume   = reverbSliderPos[0] / 100.0;
+  cfg.reverbRoomsize = reverbSliderPos[1] / 100.0;
+  cfg.reverbDamping  = reverbSliderPos[2] / 100.0;
 }
 
 
@@ -141,8 +165,8 @@ void drawReverbScreen()
   uint16_t xSep = 90;
 
   // slider x positions
-  uint16_t sx[NUM_GUI_ITEMS];
-  for (uint8_t i = 0; i < NUM_GUI_ITEMS; i++)
+  uint16_t sx[NUM_REVERB_ITEMS];
+  for (uint8_t i = 0; i < NUM_REVERB_ITEMS; i++)
     sx[i] = i * xSep + xInitial;
 
   // slider y positions
@@ -151,7 +175,7 @@ void drawReverbScreen()
   if (!initialScreenDrawn)
   {
     Serial.println("Initializing Reverb Screen");
-    selectedUiItem = 0;
+    selectedReverbItem = 0;
 
     // reset encoders
     paramEncoder.write(0);
@@ -172,27 +196,27 @@ void drawReverbScreen()
 
 
   // first time we need to draw all items
-  if (!initialScreenDrawn || selectedUiItemChanged)
+  if (!initialScreenDrawn || selectedReverbItemChanged)
   {
 
-    for (uint8_t i = 0; i < NUM_GUI_ITEMS; i++)
+    for (uint8_t i = 0; i < NUM_REVERB_ITEMS; i++)
     {
-      if (i == selectedUiItem)
-        drawSlider(sx[i], sy, sliderVal[i], true);
+      if (i == selectedReverbItem)
+        drawSlider(sx[i], sy, reverbSliderPos[i], true);
       else
-        drawSlider(sx[i], sy, sliderVal[i], false);
+        drawSlider(sx[i], sy, reverbSliderPos[i], false);
     }
   }
   // otherwise only draw selected item
   else
-    drawSlider(sx[selectedUiItem], sy, sliderVal[selectedUiItem], true);
+    drawSlider(sx[selectedReverbItem], sy, reverbSliderPos[selectedReverbItem], true);
 
   initialScreenDrawn = true;
 }
 
 
 
-
+// this will eventually reside in the gui class file
 bool checkEncoders2(uint8_t numItems)
 {
   // checks both param & value encoders for changes
@@ -202,9 +226,7 @@ bool checkEncoders2(uint8_t numItems)
   // is read. Changes to value encode increase or decrease
   // the value of the "selected item"
 
-  // store the current value as baseline and read Parameter Encoder
-  lastParamEncVal = paramEncVal;
-  paramEncVal = readParamEncoder();
+  paramEncVal = readParamEncoder() / 2;
 
   if (paramEncVal != lastParamEncVal)
   {
@@ -212,48 +234,44 @@ bool checkEncoders2(uint8_t numItems)
     printValue("lastParamEncVal", lastParamEncVal);
 
     // save the current selected item
-    lastselectedUiItem = selectedUiItem;
+    lastselectedReverbItem = selectedReverbItem;
 
-    // and then move to next or previous item
+    // and then move to next or previous item, wraps-around
     if (paramEncVal > lastParamEncVal)
-      selectedUiItem++;
+      selectedReverbItem++;
     else if (paramEncVal < lastParamEncVal)
-      selectedUiItem--;
+      selectedReverbItem--;
 
-    // make sure we stay in bounds
-    selectedUiItem = constrain(selectedUiItem, 0, numItems - 1);
-    printValue("selectedUiItem", selectedUiItem);
-
-    selectedUiItemChanged = true;
+    selectedReverbItem = selectedReverbItem % numItems;
+    printValue("selectedReverbItem", selectedReverbItem);
+    selectedReverbItemChanged = true;
     return true;
   }
 
   else
-
   {
     // if no param encoder changes, then read Value Encoder
-    lastValEncVal = valEncVal;
-    valEncVal = readValueEncoder();
-
+    valEncVal = readValueEncoder() / 2;
     if (valEncVal != lastValEncVal)
     {
-      printValue("valEncVal", valEncVal);
-      printValue("lastValEncVal", lastValEncVal);
-
       // increase or decrease the slider's new position (need to re-draw later)
       if (valEncVal > lastValEncVal)
-        sliderVal[selectedUiItem] += 8;
+        reverbSliderPos[selectedReverbItem] += 4;
 
       else if (valEncVal < lastValEncVal)
-        sliderVal[selectedUiItem] -= 8;
+        reverbSliderPos[selectedReverbItem] -= 4;
 
       // keep it in the slider's range
-      sliderVal[selectedUiItem] = constrain(sliderVal[selectedUiItem], 0, 100.0);
-      printValue("sliderVal[selectedUiItem]", sliderVal[selectedUiItem]);
-      UiItemValueChanged = true;
+      reverbSliderPos[selectedReverbItem] = constrain(reverbSliderPos[selectedReverbItem], 0, 100.0);
+      reverbItemValueChanged = true;
+      printValue("reverbSliderPos[selectedReverbItem]", reverbSliderPos[selectedReverbItem]);
     }
     return true;
   }
+
+  delay(50);
+  lastParamEncVal = paramEncVal;
+  lastValEncVal = valEncVal;
 
   // nothing changed
   return false;

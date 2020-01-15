@@ -15,6 +15,7 @@
 
 // prototypes
 void initInputLevel();
+void printInputConfig();
 void drawInitialInputTrimScreen();
 void updateInputTrimScreen();
 
@@ -34,6 +35,13 @@ int Vu_Height;
 void initInputLevel()
 {
   Serial.println("Input Level Initialized");
+}
+
+
+void printInputConfig()
+{
+      Serial.print(F("Input Level Adj = "));  Serial.println(cfg.inputValueAdj);
+
 }
 
 

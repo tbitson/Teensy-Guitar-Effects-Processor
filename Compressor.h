@@ -15,6 +15,7 @@
 void updateCompressorSettings();
 void disableCompressor();
 void enableCompressor();
+void printCompressorConfig();
 void updateExpanderGain();
 void updateExpanderResponse();
 void updateCompressorThreshold();
@@ -84,11 +85,19 @@ void toggleCompressor()
 }
 
 
-// primary compressor settings function
+void printCompressorConfig()
+{
+      Serial.print(F("Comp Enabled   = "));   Serial.println(cfg.compEnabled);
+  Serial.print(F("Comp Gain      = "));   Serial.println(cfg.compGain);
+  Serial.print(F("Comp Response  = "));   Serial.println(cfg.compResponse);
+  Serial.print(F("Comp Limit     = "));   Serial.println(cfg.compHardLimit);
+  Serial.print(F("Comp Threshold = "));   Serial.println(cfg.compThreshold);
+  Serial.print(F("Comp Attack    = "));   Serial.println(cfg.compAttack);
+  Serial.print(F("Comp Decay     = "));   Serial.println(cfg.compDecay);
+}
+
 void updateCompressorSettings()
 {
-  // example: audioShield.autoVolumeControl(2, 1, 0, -5, 0.5, 0.5);
-  //
   // configure the compressor with current settings
   // gain: 0 = 0dB, 1 = 6dB, 2 = 12dB
   // response (integration time): 0 = 0ms, 1 = 25ms, 2 = 50 ms, 3 = 100 ms (values > 3 permissible)
@@ -96,15 +105,16 @@ void updateCompressorSettings()
   // threshold: 0 to -96 in dBFS
   // attack: controls decrease in gain in dB per second  (0 to 1.0 ???)
   // decay: how fast gain is restored in dB per second   (0 to 1.0 ???)
+  // example: audioShield.autoVolumeControl(1, 1, 0, -18, 0.5, 0.5);
 
   audioShield.autoVolumeControl(cfg.compGain, cfg.compResponse, cfg.compHardLimit, cfg.compThreshold, cfg.compAttack, cfg.compDecay);
 }
 
 
 
-uint8_t gain[] = {0, 1, 2};
-uint8_t response[] = {0, 1, 2, 3};
-uint8_t limit[] = {0, 1};
+//uint8_t gain[] = {0, 1, 2};
+//uint8_t response[] = {0, 1, 2, 3};
+//uint8_t limit[] = {0, 1};
 
 
 
@@ -413,7 +423,7 @@ void updateExpanderResponse()
 void updateCompressorThreshold()
 {
   int pos;
-  cfg.compThreshold -= CompressorAdjustValue / 2.0;
+  cfg.compThreshold -= CompressorAdjustValue;
   cfg.compThreshold = constrain(cfg.compThreshold, -96, 0);
 
   pos = 182 - (int) ((float) cfg.compThreshold * (182.0 / -96.0)); // scale 0->65535 into  182 ->0
@@ -430,8 +440,8 @@ void updateCompressorThreshold()
 void updateCompressorAttack()
 {
   int pos;
-  cfg.compAttack += CompressorAdjustValue / 10;
-  cfg.compAttack = constrain(cfg.compAttack, 0, 1);
+  cfg.compAttack += CompressorAdjustValue / 10.0;
+  cfg.compAttack = constrain(cfg.compAttack, 0, 1.0);
   
   pos = 182 - ((int)(cfg.compAttack * 182));  // scale 0 -> 1024 into 182 -> 0
   tft.fillRoundRect(203, 0, 29, 192, 8, GUI_SHAPE_COLOR);
@@ -446,8 +456,8 @@ void updateCompressorAttack()
 void updateCompressorDecay()
 {
   int pos;
-  cfg.compDecay += CompressorAdjustValue / 10;
-  cfg.compDecay = constrain(cfg.compDecay, 0, 1);
+  cfg.compDecay += CompressorAdjustValue / 10.0;
+  cfg.compDecay = constrain(cfg.compDecay, 0, 1.0);
 
   pos = 182.0 - ((int)(cfg.compDecay * 182)); 
   tft.fillRoundRect(261, 0, 29, 192, 8, GUI_SHAPE_COLOR);

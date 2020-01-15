@@ -9,6 +9,8 @@
     - 0,0 is upper left, which means that items such as sliders that
       move "up" have decreasing values. They need to be 'inverted'
 
+    Available Font Sizes:
+    Arial_8 through 14, 16, 18, 20, 24, 28, 32, 40, 48, 60, 72, 96
 
 */
 
@@ -112,6 +114,10 @@ int lastReverbScreenFocusItem;
 //int16_t lastSelectedItem = 0;
 //bool selectedItemChanged = false;
 //bool guiValueChanged = false;
+
+// maximum number of slider
+//float slidePos[8];
+
 
 
 // constants

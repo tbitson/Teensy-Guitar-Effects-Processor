@@ -113,15 +113,11 @@
 #define SHOW_CONFIG     2
 #define REBOOT_MODE     3
 
-
 // external switch
 #define COMPRESSOR_SWITCH_PIN   10
 
-
 // Switch Debounce Time
 #define DEBOUNCE_MS    15
-
-
 
 // PCF8574 Remote 8-Bit I/O Expander for I2C Bus
 // Interface to the LED and Buttson

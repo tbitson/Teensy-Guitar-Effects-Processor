@@ -17,6 +17,7 @@
 void initTremolo();
 void enableTremolo();
 void disableTremolo();
+void printTremoloConfig();
 void drawInitialTremoloScreen();
 void updateTremoloScreen();
 
@@ -58,9 +59,31 @@ void disableTremolo()
 {
   mixer1.gain(TREMOLO, 0.0);
   tremoloActive = false;
-  Serial.println("Tremolo On");
+  Serial.println("Tremolo Off");
 }
 
+
+
+void toggleTremolo()
+{
+  if (tremoloActive)
+  {
+    disableTremolo();
+  }
+  else
+  {
+    enableTremolo();
+  }
+}
+
+
+void printTremoloConfig()
+{
+      Serial.print(F("Tremolo Speed  = "));   Serial.println(cfg.tremoloSpeed);
+  Serial.print(F("Tremolo Depth  = "));   Serial.println(cfg.tremoloDepth);
+  Serial.print(F("Flanger Speed  = "));   Serial.println(cfg.flangerSpeed);
+  Serial.print(F("Flanger Depth  = "));   Serial.println(cfg.flangerDepth);
+}
 
 
 

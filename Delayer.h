@@ -4,7 +4,8 @@
     handles the Delay screen drawing and updates
     the Delay settings in the audio chip
 
-    version 0.6
+    version 0.7
+
 
 */
 
@@ -18,123 +19,116 @@
 void initDelayer();
 void disableDelayer();
 void enableDelayer();
-void updateDelayer();
+void toggleDelayer();
+void printDelayConfig();
 void setDelay(uint8_t channel, float timeMS, float volume);
-void showDelays();
-
-
-//void convertDelayToSlider();
-//void doDelayScreen();
-//void drawDelayScreen();
-//void convertSliderToDelay();
-//bool checkEncoders3(uint8_t);
+void updateDelays();
+void convertDelayToSlider();
+void convertSliderToDelay();
+void doDelayScreen();
+void drawDelayScreen();
+bool checkEncoders3(uint8_t numItems);
 
 
 
 // constants
-const uint8_t numDelayItems = 8;
+// 4 delays, 2 items each
+const uint8_t numDelays = 4;
+const uint8_t numDelayItems = numDelays * 2;
 
 
 
 // global vars
-bool delayerEnabled = false;
+bool delayerActive = false;
 
 
-//int16_t selectedDelayItem = 0;
-//int16_t lastselectedDelayItem = 0;
-//bool selectedDelayItemChanged = false;
-////bool itemValueChanged = false;
-//float delaySliderPos[numDelayItems];
+int16_t selectedDelayItem = 0;
+int16_t lastselectedDelayItem = 0;
+bool selectedDelayItemChanged = false;
+float delaySliderPos[numDelayItems];
 
 
-
-// NOT IN config.h YET, delay config not saved
-float delayTimes[4];
-float delayVols[4];
 
 
 
 
 void initDelayer()
 {
-  for (uint8_t i = 0; i < 4; i++)
-  {
-    delayTimes[i] = (float)i * 10.0;
-    delayVols[i]  = 0;
-  }
-
-  updateDelayer();
-  // initialScreenDrawn = false;
-  Serial.println("delayer Initialized");
+  updateDelays();
   disableDelayer();
+  Serial.println("delayer Initialized");
 }
 
 
 void disableDelayer()
 {
-  mixer3.gain(3, 0);
-  delayerEnabled = false;
+  // mixer 1 turns on/off delay effects
+  mixer1.gain(DELAY_CH, 0);
+  delayerActive = false;
   Serial.println("delayer disabled");
 }
 
 
 void enableDelayer()
 {
-  mixer3.gain(3, 1.0);
-  delayerEnabled = true;
+  mixer1.gain(DELAY_CH, 1.0);
+  delayerActive = true;
   Serial.println("delayer enabled");
 }
 
 
-void updateDelayer()
+void toggleDelayer()
 {
-  delay1.delay(0, delayTimes[0]);
-  delay1.delay(1, delayTimes[1]);
-  delay1.delay(2, delayTimes[2]);
-  delay1.delay(3, delayTimes[3]);
-
-  mixer4.gain(0, delayVols[0]);
-  mixer4.gain(1, delayVols[1]);
-  mixer4.gain(2, delayVols[2]);
-  mixer4.gain(3, delayVols[3]);
+  if (delayerActive)
+    disableDelayer();
+  else
+    enableDelayer();
 }
 
 
+// does the actual changes to the audio board
+void updateDelays()
+{
+  for (uint8_t i = 0; i < numDelays; i++)
+  {
+    delay1.delay(i, cfg.delayTimes[i]);
+    mixer4.gain(i, cfg.delayVols[i]);
+  }
+  printValue("Updated delays");
+}
 
+
+// dev use, probably discard
 void setDelay(uint8_t channel, float timeMS, float volume)
 {
-  if (channel < 4)
+  if (channel < numDelays)
   {
     timeMS = constrain(timeMS, 0, 1000);
     volume = constrain(volume, 0, 1.0);
 
-    delayTimes[channel] = timeMS;
-    delayVols[channel] = volume;
+    cfg.delayTimes[channel] = timeMS;
+    cfg.delayVols[channel] = volume;
   }
 
-  updateDelayer();
+  delay1.delay(channel, cfg.delayTimes[channel]);
+  mixer4.gain(channel,  cfg.delayVols[channel]);
 }
 
 
-void showDelays()
+void printDelayConfig()
 {
-  for (uint8_t i = 0; i < 4; i++)
+  for (uint8_t i = 0; i < numDelays; i++)
   {
-    Serial.print("Delay time ");
-    Serial.print(i);
-    Serial.print(" = ");
-    Serial.print(delayTimes[i]);
-    Serial.print(" vol = ");
-    Serial.println(delayVols[i]);
+    Serial.print("Delay time "); Serial.print(i); Serial.print(" = "); Serial.print(cfg.delayTimes[i]);
+    Serial.print(" vol = "); Serial.println(cfg.delayVols[i]);
   }
 }
 
-/*
 
 
-  // main Delay screen loop
-  void doDelayScreen()
-  {
+// main Delay screen loop
+void doDelayScreen()
+{
   selectedDelayItemChanged = false;
   itemValueChanged = false;
 
@@ -153,56 +147,63 @@ void showDelays()
     convertSliderToDelay();
     drawDelayScreen();
     convertSliderToDelay();
+    updateDelays();
     initialScreenDrawn = true;
 
     // reset encoder values for new delta
     lastParamEncVal = paramEncVal;
     lastValEncVal = valEncVal;
   }
-  }
+}
 
 
-
-  void convertDelayToSlider() // updateSliderValues()
+// display the 4 delay sliders followed by 4 volume sliders
+void convertDelayToSlider() // updateSliderValues()
+{
+  // convert Delay settings, delay 100% = 1000ms, volume 1.0 = 100%
+  for (uint8_t i = 0; i < 4; i++)
   {
-  // convert Delay settings -1.0 to +1.0 to slider level of 0 to 100%
-  for (uint8_t i = 0; i < numDelayItems; i++)
-  {
-    sliderPos[i] = (cfg.DelayBandVals[i] + 1.0) * 50;
-    printValue("slider pos", i, sliderPos[i]);
-    sliderPos[i] = constrain(sliderPos[i], 0, 100);
+    // delay
+    delaySliderPos[i] = cfg.delayTimes[i] / 10;   // 1000ms = 100%
+    printValue("slider pos", i, delaySliderPos[i]);
+    delaySliderPos[i] = constrain(delaySliderPos[i], 0, 100);
+
+    // volume
+    delaySliderPos[i + 4] = cfg.delayVols[i] * 100;
+    printValue("slider pos", i + 4, delaySliderPos[i + 4]);
+    delaySliderPos[i + 4] = constrain(delaySliderPos[i + 4], 0, 100);
   }
-  }
+}
 
 
 
 
-  void convertSliderToDelay() //  updateDelayValues()
+void convertSliderToDelay() //  updateDelayValues()
+{
+  for (uint8_t i = 0; i < 4; i++)
   {
-  // convert slider position to Delay values
-  // sliderPos = 0 to 100%, convert to +/- 1.0
+    cfg.delayTimes[i] = delaySliderPos[i] * 10;  // 100% = 1000ms
+    printValue("delay time", i, cfg.delayTimes[i]);
+    cfg.delayTimes[i] = constrain(cfg.delayTimes[i], 0, 1000);
 
-  for (uint8_t i = 0; i < numDelayItems; i++)
-  {
-    cfg.DelayBandVals[i] = sliderPos[i] / 50.0 - 1.0;
-    printValue("slider pos", i, sliderPos[i]);
-    cfg.DelayBandVals[i] = constrain(cfg.DelayBandVals[i], -1.0, 1.0);
+    cfg.delayVols[i] = delaySliderPos[i + 4] / 100.0; // 100% = 1.0
+    printValue("delay vol", i, cfg.delayVols[i]);
+    cfg.delayVols[i] = constrain(cfg.delayVols[i], 0, 1.0);
   }
-
-  }
-
+}
 
 
 
-  void drawDelayScreen()
-  {
+
+void drawDelayScreen()
+{
   // slider spacing
   uint16_t SliderXSeparation = 40;
 
   // slider x positions
   uint16_t SliderX[numDelayItems];
   for (uint8_t i = 0; i < numDelayItems; i++)
-    SliderX[i] = i * SliderXSeparation + 10;
+    SliderX[i] = i * SliderXSeparation + 5;
 
   // slider y positions
   uint16_t SliderY = 0;
@@ -221,12 +222,15 @@ void showDelays()
     // draw screen text
     tft.fillScreen(GUI_FILL_COLOR);
     tft.setTextColor(GUI_ITEM_COLOR);
-    tft.setFont(Arial_14);
-    tft.setCursor(20, 200);  // 0, 9, 17, 24, 32
-    tft.print("DLY1 Vol1 DLY2 Vol2 DLY3 Vol3 DLY4 Vol4");
-    tft.setCursor(90, 220);
+    tft.setFont(Arial_9);
+    tft.setCursor(5, 200);
+    tft.print("DLY1  DLY2  DLY3  DLY4  VOL1  VOL2  VOL2  VOL4");
+
+    tft.setFont(Arial_16);
+    tft.setCursor(85, 220);
     tft.setTextColor(GUI_TEXT_COLOR);
     tft.print("4 Channel Delay");
+    tft.drawFastVLine(130, 0, 220, GUI_ITEM_COLOR);
   }
 
   // first time we need to draw all items
@@ -235,21 +239,21 @@ void showDelays()
     for (uint8_t i = 0; i < numDelayItems; i++)
     {
       if (i == selectedDelayItem)
-        drawSlider(SliderX[i], SliderY, sliderPos[i], true);
+        drawSlider(SliderX[i], SliderY, delaySliderPos[i], true);
       else
-        drawSlider(SliderX[i], SliderY, sliderPos[i], false);
+        drawSlider(SliderX[i], SliderY, delaySliderPos[i], false);
     }
   }
   // otherwise only draw selected item
   else
-    drawSlider(SliderX[selectedDelayItem], SliderY, sliderPos[selectedDelayItem], true);
-  }
+    drawSlider(SliderX[selectedDelayItem], SliderY, delaySliderPos[selectedDelayItem], true);
+}
 
 
 
-  // this will eventually reside in the gui class file
-  bool checkEncoders3(uint8_t numItems)
-  {
+// this will eventually reside in the gui class file
+bool checkEncoders3(uint8_t numItems)
+{
   // checks both param & value encoders for changes
   // read the param encoder first, which selects the
   // gui item. If changed, exits with the new
@@ -257,7 +261,7 @@ void showDelays()
   // is read. Changes to value encode increase or decrease
   // the value of the "selected item"
 
-  paramEncVal = readParamEncoder();
+  paramEncVal = readParamEncoder() / 2;
 
   if (paramEncVal != lastParamEncVal)
   {
@@ -287,15 +291,15 @@ void showDelays()
     {
       // increase or decrease the slider's new position (need to re-draw later)
       if (valEncVal > lastValEncVal)
-        sliderPos[selectedDelayItem] += 4;
+        delaySliderPos[selectedDelayItem] += 4;
 
       else if (valEncVal < lastValEncVal)
-        sliderPos[selectedDelayItem] -= 4;
+        delaySliderPos[selectedDelayItem] -= 4;
 
       // keep it in the slider's range
-      sliderPos[selectedDelayItem] = constrain(sliderPos[selectedDelayItem], 0, 100.0);
+      delaySliderPos[selectedDelayItem] = constrain(delaySliderPos[selectedDelayItem], 0, 100.0);
       itemValueChanged = true;
-      printValue("sliderPos[selectedDelayItem]", sliderPos[selectedDelayItem]);
+      printValue("delaySliderPos[selectedDelayItem]", delaySliderPos[selectedDelayItem]);
     }
     return true;
   }
@@ -306,6 +310,4 @@ void showDelays()
 
   // nothing changed
   return false;
-  }
-
-*/
+}

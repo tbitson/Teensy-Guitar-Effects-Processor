@@ -1,14 +1,12 @@
-/*   utils. h - various support functions
-
-   version 1.1.0   Dec 2019
-
-   Various utility and helper functions
-
-
-
-
-
-*/
+/**************************************   
+ * utils. h - various support functions
+ * 
+ * version 1.1.0   Dec 2019
+ * 
+ * Various utility and helper functions
+ * 
+ * 
+ ***************************************/
 
 
 
@@ -20,8 +18,8 @@ void printValue(String, float);
 void printValue(const char*, int, float);
 void printArryValue(const char* , uint8_t, float);
 void printAudioMemUsage();
-void printCPUinfo();
-void rebootTeensy();
+//void printCPUinfo();
+//void rebootTeensy();
 
 
 
@@ -128,6 +126,10 @@ void printAudioMemUsage()
 }
 
 
+
+
+/*
+ DOESNT WORK ON TEENSY 3.5/3.6
 // debugging aid - call to reboot teensy
 //#define RESTART_ADDR 0xE000ED0C
 //#define READ_RESTART() (*(volatile uint32_t *)RESTART_ADDR)
@@ -135,7 +137,7 @@ void printAudioMemUsage()
 
 void rebootTeensy()
 {
-  /*  
+ 
   Serial.println("Are you sure?");
   uint32_t start = millis();
   while (millis() - start < 10000)
@@ -156,9 +158,8 @@ void rebootTeensy()
  
   WRITE_RESTART(0x5FA0004);
   Serial.println("bye!");
-  */
-}
 
+}
 
 
 void printCPUinfo()
@@ -207,3 +208,4 @@ void printCPUinfo()
     Serial.println( "RTC hardware Present");
   //#endif
 }
+*/

@@ -17,6 +17,7 @@
 // prototypes
 void initEqualizer();
 void calcParametricEQ();
+void printEqConfig();
 void convertEqToSlider();
 void doEqScreen();
 void drawEqScreen();
@@ -54,7 +55,7 @@ void initEqualizer()
   audioShield.eqSelect(1); //select parametric EQ
   calcParametricEQ();
   initialScreenDrawn = false;
-  
+
   Serial.println("Equalizer Initialized");
 }
 
@@ -70,6 +71,15 @@ void calcParametricEQ()
   }
 }
 
+
+void printEqConfig()
+{
+      Serial.print(F("EQ Bass        = "));   Serial.println(cfg.eqBandVals[BASS]);
+  Serial.print(F("EQ Mid-Bass    = "));   Serial.println(cfg.eqBandVals[MID_BASS]);
+  Serial.print(F("EQ Midrange    = "));   Serial.println(cfg.eqBandVals[MIDRANGE]);
+  Serial.print(F("EQ Mid-Treble  = "));   Serial.println(cfg.eqBandVals[MID_TREBLE]);
+  Serial.print(F("EQ Treble      = "));   Serial.println(cfg.eqBandVals[TREBLE]);
+}
 
 
 
@@ -111,7 +121,7 @@ void convertEqToSlider() // updateSliderValues()
   for (uint8_t i = 0; i < numEqItems; i++)
   {
     sliderPos[i] = (cfg.eqBandVals[i] + 1.0) * 50;
-    printValue("slider pos", i,sliderPos[i]); 
+    printValue("slider pos", i, sliderPos[i]);
     sliderPos[i] = constrain(sliderPos[i], 0, 100);
   }
 }
@@ -127,10 +137,10 @@ void convertSliderToEq() //  updateEqValues()
   for (uint8_t i = 0; i < numEqItems; i++)
   {
     cfg.eqBandVals[i] = sliderPos[i] / 50.0 - 1.0;
-    printValue("eqBandVals", i,cfg.eqBandVals[i]);
+    printValue("eqBandVals", i, cfg.eqBandVals[i]);
     cfg.eqBandVals[i] = constrain(cfg.eqBandVals[i], -1.0, 1.0);
   }
-    
+
 }
 
 
@@ -213,8 +223,13 @@ bool checkEncoders(uint8_t numItems)
     if (paramEncVal > lastParamEncVal)
       selectedEqItem++;
     else if (paramEncVal < lastParamEncVal)
-      selectedEqItem--;
-      
+    {
+      if (selectedEqItem == 0)
+        selectedEqItem = numItems - 1;
+      else
+        selectedEqItem--;
+    }
+
     selectedEqItem = selectedEqItem % numItems;
     printValue("selectedEqItem", selectedEqItem);
     selectedEqItemChanged = true;
@@ -224,6 +239,7 @@ bool checkEncoders(uint8_t numItems)
   else
   {
     // if no param encoder changes, then read Value Encoder
+    // values adjusted for slider range of 0 to 100%
     valEncVal = readValueEncoder() / 2;
     if (valEncVal != lastValEncVal)
     {
@@ -242,9 +258,9 @@ bool checkEncoders(uint8_t numItems)
     return true;
   }
 
-  delay(50);
   lastParamEncVal = paramEncVal;
   lastValEncVal = valEncVal;
+  delay(50);
 
   // nothing changed
   return false;

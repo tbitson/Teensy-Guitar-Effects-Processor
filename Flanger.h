@@ -67,6 +67,20 @@ void enableFlanger()
 
 
 
+void toggleFlanger()
+{
+  if (flangerActive)
+  {
+    disableFlanger();
+  }
+  else
+  {
+    enableFlanger();
+  }
+}
+
+
+
 // in work TBD
 void changeFlangerVoice()
 {

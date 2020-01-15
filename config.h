@@ -1,17 +1,26 @@
-/*******************************************************************************
+/******************************************************
    Global settings variables and functions to
    save and load to non-volatile memory (EEPROM)
 
    version 1.1   Jan 2020
 
 
-*******************************************************************************/
+********************************************************/
 
 #ifndef CONFIG_H
 #define CONFIG_H
 
 
 #include <EEPROM.h>
+
+
+
+extern void printEqConfig();
+extern void printCompressorConfig();
+extern void printTremoloConfig();
+extern void printReverbConfig();
+extern void printDelayConfig();
+extern void printInputConfig();
 
 
 
@@ -27,7 +36,7 @@ void showEEPROM();
 
 // if the first byte of stored data matches this, it
 // is assumed valid data for this version
-#define EEPROM_VERSION 161
+#define EEPROM_VERSION 166
 #define EEPROM_ADDR    0
 
 
@@ -94,6 +103,9 @@ struct Config
   float   reverbRoomsize;
   float   reverbDamping;
 
+  float delayTimes[4];
+  float delayVols[4];
+
   int     inputValueAdj;
 
   uint8_t lastMenu;
@@ -134,6 +146,17 @@ void loadDefaults()
   cfg.reverbRoomsize  = 0.5;        // 0 to 1.0
   cfg.reverbDamping   = 0.3;        // 0 to 1.0
 
+  // delayer
+  cfg.delayTimes[0] = 100;
+  cfg.delayTimes[1] = 200;
+  cfg.delayTimes[2] = 300;
+  cfg.delayTimes[3] = 400;
+
+  cfg.delayVols[0] = 1.0;
+  cfg.delayVols[1] = 0.8;
+  cfg.delayVols[2] = 0.4;
+  cfg.delayVols[3] = 0.2;
+
   // flanger
   cfg.flangerDepth    = 0.4;        //
   cfg.flangerSpeed    = 1.0;        //
@@ -154,7 +177,7 @@ bool loadConfig()
   // init eeprom library
   EEPROM.begin();
   delay(100);
-  
+
   // load default settings
   loadDefaults();
 
@@ -184,7 +207,7 @@ bool loadConfig()
 
 bool saveConfig()
 {
-  // don't store if version is 0, used for dev
+  // don't store if version is 0, used for dev to force defaults
   if (EEPROM_VERSION == 0)
     return false;
 
@@ -204,29 +227,14 @@ void printConfig()
   Serial.println();
   Serial.println(F("Current Config:"));
   Serial.print(F("Version = "));          Serial.println(cfg.vers);
-  Serial.print(F("EQ Bass        = "));   Serial.println(cfg.eqBandVals[BASS]);
-  Serial.print(F("EQ Mid-Bass    = "));   Serial.println(cfg.eqBandVals[MID_BASS]);
-  Serial.print(F("EQ Midrange    = "));   Serial.println(cfg.eqBandVals[MIDRANGE]);
-  Serial.print(F("EQ Mid-Treble  = "));   Serial.println(cfg.eqBandVals[MID_TREBLE]);
-  Serial.print(F("EQ Treble      = "));   Serial.println(cfg.eqBandVals[TREBLE]);
-  delay(100);
-  Serial.print(F("Comp Enabled   = "));   Serial.println(cfg.compEnabled);
-  Serial.print(F("Comp Gain      = "));   Serial.println(cfg.compGain);
-  Serial.print(F("Comp Response  = "));   Serial.println(cfg.compResponse);
-  Serial.print(F("Comp Limit     = "));   Serial.println(cfg.compHardLimit);
-  Serial.print(F("Comp Threshold = "));   Serial.println(cfg.compThreshold);
-  Serial.print(F("Comp Attack    = "));   Serial.println(cfg.compAttack);
-  Serial.print(F("Comp Decay     = "));   Serial.println(cfg.compDecay);
-  delay(200);
-  Serial.print(F("Tremolo Speed  = "));   Serial.println(cfg.tremoloSpeed);
-  Serial.print(F("Tremolo Depth  = "));   Serial.println(cfg.tremoloDepth);
-  Serial.print(F("Flanger Speed  = "));   Serial.println(cfg.flangerSpeed);
-  Serial.print(F("Flanger Depth  = "));   Serial.println(cfg.flangerDepth);
-  delay(200);
-  Serial.print(F("Reverb Volume   = "));  Serial.println(cfg.reverbVolume);
-  Serial.print(F("Reverb Roomsize = "));  Serial.println(cfg.reverbRoomsize);
-  Serial.print(F("Reverb Damping  = "));  Serial.println(cfg.reverbDamping);
-  Serial.print(F("Input Level Adj = "));  Serial.println(cfg.inputValueAdj);
+  
+  printEqConfig();
+  printCompressorConfig();
+  printTremoloConfig();
+  printReverbConfig();
+  printDelayConfig();
+  printInputConfig();
+
   Serial.print(F("Last Menu       = "));  Serial.println(cfg.lastMenu);
   Serial.println();
   delay(200);

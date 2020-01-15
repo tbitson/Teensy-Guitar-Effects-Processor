@@ -7,7 +7,12 @@
  *
  * Paste output from the Audio Tool in this file
  *
- *  version 167  14Jan2020
+ *  THIS VERSION APPLYS TEST TONE INSTEAD OF AUDIO INPUT
+ *  Used to generate a test tone without needing an audio
+ *  input source. It is a temp fix until the bug using a
+ *  separate mixer is resolved. Replace patches.h with this file.
+ *
+ *  version 167t  14Jan2020
  *
  *
  **************************************************************/
@@ -37,8 +42,8 @@
 
 // mixer 3 Effects Mix channel definitions
 #define DRY_CH              0
-#define WET_NO_REVERB_CH    1   // bypass reverb
-#define WET_REVERB          2   // with reverb
+#define WET_NO_REVERB_CH    1   // with reverb
+#define WET_REVERB          2   // without reverb
 //
 // mixer 4 channel definitions
 #define DELAY1     0
@@ -46,7 +51,8 @@
 #define DELAY3     2
 #define DELAY4     3
 
-// mixer 5 input select
+// mixer 5 not connected but still in place to
+// allow main line code to work
 #define AUDIO_IN    0
 #define TEST_TONE   1
 
@@ -61,16 +67,14 @@
 #include <SD.h>
 #include <SerialFlash.h>
 
-
 // GUItool: begin automatically generated code
 AudioSynthWaveformSine   sine2;          //xy=64,247
-AudioInputI2S            i2s1;           //xy=67,191
+AudioInputI2S            i2s1;           //xy=72,168
 AudioSynthWaveformDc     dc2;            //xy=78,377
 AudioSynthWaveformSine   sine1;          //xy=81,444
 AudioSynthWaveformDc     dc1;            //xy=81,503
-AudioEffectEnvelope      envelope1;      //xy=224,273
+AudioEffectEnvelope      envelope1;      //xy=232,246
 AudioMixer4              mixer2;         //xy=280,521
-AudioMixer4              mixer5;         //xy=400,242
 AudioEffectDelay         delay1;         //xy=528,546
 AudioEffectMultiply      multiply1;      //xy=641,394
 AudioEffectFlange        flange1;        //xy=644,322
@@ -84,36 +88,34 @@ AudioMixer4              mixer3;         //xy=1150,211
 AudioAnalyzePeak         peak2;          //xy=1324,92
 AudioOutputI2S           i2s2;           //xy=1345,234
 AudioConnection          patchCord1(sine2, envelope1);
-AudioConnection          patchCord2(i2s1, 0, mixer3, 0);
-AudioConnection          patchCord3(i2s1, 0, mixer5, 0);
-AudioConnection          patchCord4(dc2, 0, filter1, 1);
-AudioConnection          patchCord5(sine1, 0, mixer2, 0);
-AudioConnection          patchCord6(dc1, 0, mixer2, 1);
-AudioConnection          patchCord7(envelope1, 0, mixer5, 1);
-AudioConnection          patchCord8(mixer2, 0, multiply1, 1);
-AudioConnection          patchCord9(mixer5, 0, filter1, 0);
-AudioConnection          patchCord10(mixer5, peak1);
-AudioConnection          patchCord11(mixer5, notefreq1);
-AudioConnection          patchCord12(mixer5, flange1);
-AudioConnection          patchCord13(mixer5, 0, multiply1, 0);
-AudioConnection          patchCord14(mixer5, delay1);
-AudioConnection          patchCord15(delay1, 0, mixer4, 0);
-AudioConnection          patchCord16(delay1, 1, mixer4, 1);
-AudioConnection          patchCord17(delay1, 2, mixer4, 2);
-AudioConnection          patchCord18(delay1, 3, mixer4, 3);
-AudioConnection          patchCord19(multiply1, 0, mixer1, 2);
-AudioConnection          patchCord20(flange1, 0, mixer1, 1);
-AudioConnection          patchCord21(filter1, 0, mixer1, 0);
-AudioConnection          patchCord22(mixer4, 0, mixer1, 3);
-AudioConnection          patchCord23(mixer1, freeverb1);
-//AudioConnection          patchCord24(mixer1, 0, mixer3, 1);
-AudioConnection          patchCord25(freeverb1, 0, mixer3, 2);
-AudioConnection          patchCord26(mixer3, 0, i2s2, 0);
-AudioConnection          patchCord27(mixer3, 0, i2s2, 1);
-AudioConnection          patchCord28(mixer3, peak2);
+AudioConnection          patchCord2(dc2, 0, filter1, 1);
+AudioConnection          patchCord3(sine1, 0, mixer2, 0);
+AudioConnection          patchCord4(dc1, 0, mixer2, 1);
+AudioConnection          patchCord5(envelope1, peak1);
+AudioConnection          patchCord6(envelope1, notefreq1);
+AudioConnection          patchCord7(envelope1, 0, filter1, 0);
+AudioConnection          patchCord8(envelope1, 0, mixer3, 0);
+AudioConnection          patchCord9(envelope1, flange1);
+AudioConnection          patchCord10(envelope1, 0, multiply1, 0);
+AudioConnection          patchCord11(envelope1, delay1);
+AudioConnection          patchCord12(mixer2, 0, multiply1, 1);
+AudioConnection          patchCord13(delay1, 0, mixer4, 0);
+AudioConnection          patchCord14(delay1, 1, mixer4, 1);
+AudioConnection          patchCord15(delay1, 2, mixer4, 2);
+AudioConnection          patchCord16(delay1, 3, mixer4, 3);
+AudioConnection          patchCord17(multiply1, 0, mixer1, 2);
+AudioConnection          patchCord18(flange1, 0, mixer1, 1);
+AudioConnection          patchCord19(filter1, 0, mixer1, 0);
+AudioConnection          patchCord20(mixer4, 0, mixer1, 3);
+AudioConnection          patchCord21(mixer1, freeverb1);
+AudioConnection          patchCord22(mixer1, 0, mixer3, 1);
+AudioConnection          patchCord23(freeverb1, 0, mixer3, 2);
+AudioConnection          patchCord24(mixer3, 0, i2s2, 0);
+AudioConnection          patchCord25(mixer3, 0, i2s2, 1);
+AudioConnection          patchCord26(mixer3, peak2);
 AudioControlSGTL5000     audioShield;    //xy=75,113
-
 // GUItool: end automatically generated code
+
 
 
 //---------------------------------------------------------------------------------------

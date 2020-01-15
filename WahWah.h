@@ -42,6 +42,7 @@ void disableWahWah()
 {
   mixer1.gain(WAHWAH, 0.0);
   wahWahActive = false;
+  Serial.println("WahWah Off");
 
 }
 
@@ -50,4 +51,15 @@ void enableWahWah()
 {
   mixer1.gain(WAHWAH, 1.0);
   wahWahActive = true;
+  Serial.println("WahWah On");
+}
+
+
+
+void toggleWahWah()
+{
+  if (wahWahActive)
+    disableWahWah();
+  else
+    enableWahWah();
 }

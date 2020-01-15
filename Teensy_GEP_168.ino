@@ -1,10 +1,15 @@
 /***************************************************************************
     Teensy Guitar Effects Processor (GEP)
 
+    A multi-effect DSP for guitar and other musical instuments
+    that uses the Paul Stoffregen's excellent Teensy Audio Library (TAL).
+
     This version only works with Teensy 3.5 or 3.6
     Build settings: CPU '120 MHz', USB Type 'Serial',  Optimize 'Fast',
 
-    Version 1.6.2  11Jan2020
+    Version 1.6.8  13Jan2020
+
+    Repository: https://github.com/tbitson/Teensy-Guitar-Effects-Processor
 
     Arduino version last used: 1.8.10
     Teensyduino version last used: 1.48
@@ -24,32 +29,59 @@
     it a bit easier to add new effects. Never Released.
 
     Version 1.6 - Current version: bug fixes and clean-up to version 1.5.
-    Shortened name to Teensy_GEP.
+    Shortened name to Teensy_GEP. Issue with TFT LCD and Audio Sheild sharing
+    SPI bus. Temp workaround is to add delays at startup. Added test tone
+    at the input to check effect without an audio source. Required an additional
+    mixer at input. Holding down tuner button sets a dev mode that allows changes to
+    behavior without affecting normal operation. Use to enable test tone using wahwah
+    button. Enabled headphones output in addion to line out, need provision
+    to adjust level. Added line out level indicator in input screen. Added 4 channel
+    delay and screen. Added detection of a long press on effects buttons to allow
+    toggling of 8 effects, no led indicators though. Selecting an effect also
+    switches screens to the effect chosen. Reverb is now downstream of the other
+    effects, which required a new mixer and logic changes. Guitar tuner changes seems
+    to be working pretty good when compared to a commercial product. Test led is now
+    toggled in the main loop, indicating we're alive. Maybe repurpose power led?
+    Added serial interface. Enter '?' in terminal to see menu. Allows control via
+    USB and monitoring mem usage, effects status, etc. Very helpful when creating
+    new effects; not all options implemented so far. Added a blink to the activity
+    led to show when a long press is detected.
 
-    Repository: https://github.com/tbitson/Teensy-Guitar-Effects-Processor
+    Known Issues:
+    Reverb Sliders intermittant
+    High freq noise under some condtions. Clock or TFT LCD ?
+    Conflict on SPI Bus (?) causes lcd to wig now sometimes
+    LCD display goes blank or locks up sometimes. Could be same as SPI issue.
+        requires power cycle to clear. One option is to use Teensy 3.5/3.6 SPI2 port,
+        but would require routing wire around PC board or drilling (until respin)
+    Test tone not working; something weird about mixer 5
+    Remove debug code calc in readMixPot dry level
+    Reverb output is dead. Check logic for bypass. Some weird TAL bug?
+
+
 
  ********************************************************************************/
 
 
-const String VERSION = "Version 1.6.2";
+const String VERSION = "Version 1.6.8";
 
 
 // uncomment debug print to enable helpful diagnostic print-outs
-//#define DEBUG_PRINT
+#define DEBUG_PRINT
 
-// allow serial commands (not fully tested)
+// allow serial port commands
 #define USE_SERIAL_CMDS
 
-// teensy bug requires to define here
+// teensy bug/conflict requires to define here
 #define GAIN_UNITY  1.0
 
 // audio patchpanel from audio tool
-#include "patches.h"
+//#include "patches.h"
+#include "patches_tone.h"
 
 // hardware libraries
 #include <Encoder.h>
 #include <Bounce.h>
-
 #include <PCF8574.h>
 #include <ILI9341_t3.h>
 #include <XPT2046_Touchscreen.h>
@@ -57,7 +89,7 @@ const String VERSION = "Version 1.6.2";
 // program includes
 #include "config.h"     // default settings & eeprom storage
 #include "hardware.h"   // hardware connections
-#include "utils.h"      // tft routines and misc
+#include "utils.h"      // tft routines and misc stuff
 
 
 // prototypes
@@ -67,13 +99,8 @@ void readMixPot();
 void readWahWahPot();
 bool checkCompressorSwitch();
 uint8_t readButtons();
-void toggleReverb();
-void toggleFlanger();
-void toggleTremolo();
-void toggleWahWah();
-bool updateCompressor();
 void startGuitarTuner();
-void playNote();
+void playTone();
 void handleSerialCommand(char);
 
 
@@ -100,17 +127,26 @@ uint16_t LastWahWahPotVal;
 
 
 
-// menu vars
-#define NUM_MENUS 6
+// number of menus
+#define NUM_MENUS       7
 
-uint8_t menuIndex = cfg.lastMenu;
+// effect screens
+#define EQ_SCREEN          0
+#define COMPRESSOR_SCREEN  1
+#define TREMOLO_SCREEN     2
+#define FLANGER_SCREEN     3
+#define REVERB_SCREEN      4
+#define INPUT_SCREEN       5
+#define DELAY_SCREEN       6
+
+// menu vars
+uint8_t menuIndex;
 boolean initialScreenDrawn = false;
 boolean msgFlag = false;
-
 uint8_t tunerMode = 0;
+
+// button timer
 uint32_t lastTime;
-
-
 
 
 // *** initialize hardware ***
@@ -135,16 +171,19 @@ PCF8574 PCF(PCF8574_ADDRESS);
 
 
 
-// *** start code ***
+// *** start processing ***
 
 
 void setup()
 {
-  // wait for cpu to initialize
+  // wait for cpu & lcd to initialize
   delay(1000);
 
+  // start derial port
   Serial.begin(57600);
-  AudioMemory(224);
+
+  // allocate memory for audio (mostly for delays)
+  AudioMemory(256);
 
   // configure hardware i/o pins
   pinMode(TUNER_SWITCH_PIN, INPUT_PULLUP);
@@ -152,13 +191,11 @@ void setup()
   pinMode(COMPRESSOR_SWITCH_PIN, INPUT_PULLUP);
   pinMode(TEST_LED, OUTPUT);
 
-  delay(1000);
+  // turn on led to show we're awake
+  digitalWrite(TEST_LED, ON);
 
   Serial.println("Teensy GEP");
   Serial.println(VERSION);
-
-  // show what teensy we're running
-  //printCPUinfo();
 
   // check for tuner button down, if so, enter dev mode
   if (digitalRead(TUNER_SWITCH_PIN) == 0)
@@ -169,13 +206,17 @@ void setup()
 
   // load configuration
   loadConfig();
+
+#ifdef DEBUG_PRINT
   printConfig();
+#endif
 
   // fire up the lcd screen
   initLCD();
 
   // show the splash screen
   splashScreen();
+  delay(1000);
 
   Serial.println("Configuring Audio...");
 
@@ -195,7 +236,6 @@ void setup()
   //audioShield.adcHighPassFilterDisable();            // Turn off ADC HP filter (Forum claims this reduces audio noise)
 
 
-  // init the effects
   Serial.println("Initialzing Effects");
   initCompressor();
   initEqualizer();
@@ -207,14 +247,7 @@ void setup()
   initInputLevel();
 
 
-  // Mixer 3 controls dry, wet, and tone levels
-  // test tone is on ch. 2 of this mixer
-  mixer3.gain(DRY_CH,   1.0);  // dry
-  mixer3.gain(WET_CH,   0.0);  // wet
-  mixer3.gain(TONE_CH,  1.0);  // tone
-  mixer3.gain(DELAY_CH, 0.0);  // tone
-
-  // configure a sine wave for the test tone
+  // configure a sine wave for the test tone, disable
   sine2.frequency(1000);  // 1000 Hz
   sine2.amplitude(0.5);   // 50% amplitude
 
@@ -231,9 +264,6 @@ void setup()
   Serial.println("Enabling Touchscreen");
   ts.begin();
 
-  // show audio memory usage for debugging
-  //printAudioMemUsage();
-
   // flush serial port recieve buffer
   while (Serial.available() > 0)
   {
@@ -243,6 +273,9 @@ void setup()
 
   // let everyting settle
   delay(1000);
+
+  // recall last menu used
+  menuIndex = cfg.lastMenu;
 
   // ok, here we go...
   audioShield.unmuteHeadphone();
@@ -302,13 +335,9 @@ void loop()
   {
     Serial.println("Tuner Button Presssed");
 
-    // is tuner button hijacked for alternate use
+    // is tuner button hijacked for alternate use?
     if (tunerMode == SHOW_CONFIG)
       printConfig();
-    else if (tunerMode == PLAY_NOTE)
-      playNote();
-    else if (tunerMode == REBOOT_MODE)
-      rebootTeensy();
     else
       startGuitarTuner();
   }
@@ -319,7 +348,6 @@ void loop()
 
   // Read the front panel buttons
   switchPressed = readButtons();
-
   if (switchPressed)
   {
     switch (switchPressed)
@@ -327,51 +355,54 @@ void loop()
       case 0x01:  // Reverb switch
         Serial.println("Toggle Reverb");
         toggleReverb();
+        PCF.write(REVERB_LED, !reverbActive);
         message = reverbActive ? "Reverb ON" : "Reverb OFF";
         msgFlag = true;
+        menuIndex = REVERB_SCREEN;
         break;
 
       case 0x02:  // Flanger Switch
         Serial.println("Toggle Flanger");
         toggleFlanger();
+        PCF.write(FLANGER_LED, !flangerActive);
         message = flangerActive ? "Flanger ON" : "Flanger OFF";
         msgFlag = true;
+        menuIndex = FLANGER_SCREEN;
         break;
 
       case 0x04:  // Tremolo switch
         Serial.println("Toggle Tremolo");
         toggleTremolo();
+        PCF.write(TREMOLO_LED, !tremoloActive);
         message = tremoloActive ? "Tremolo ON" : "Tremolo OFF";
         msgFlag = true;
+        menuIndex = TREMOLO_SCREEN;
         break;
 
       case 0x08:  // Wah-Wah switch
         Serial.println("Toggle Wah-Wah");
-        toggleWahWah();
-        message = wahWahActive ? "Wah-Wah ON" : "Wah-Wah OFF";
-        msgFlag = true;
-        break;
-
-      case 0x81:  // delay
-        Serial.println("Toggle Delay");
-        setDelay(0, 500, 1.0);
-        setDelay(1, 100, 0.0);
-        setDelay(2, 0, 0.0);
-        setDelay(3, 0, 0.0);
-
-        if (delayerEnabled)
-        {
-          disableDelayer();
-          PCF.write(REVERB_LED, LED_OFF);
-        }
+        // check if wah-wah button is hijacked
+        if (devMode)
+          playTone();
         else
         {
-          enableDelayer();
-          PCF.write(REVERB_LED, LED_ON);
+          toggleWahWah();
+          PCF.write(WAH_WAH_LED, !wahWahActive);
+          message = wahWahActive ? "Wah-Wah ON" : "Wah-Wah OFF";
+          msgFlag = true;
         }
-        showDelays();
+        break;
 
-        message = delayerEnabled ? "Delayer ON" : "Delayer OFF";
+      case 0x81:
+        toggleDelayer();
+        //PCF.write(REVERB_LED, !delayerActive);
+        message = delayerActive ? "Delay ON" : "Delay OFF";
+        msgFlag = true;
+        menuIndex = DELAY_SCREEN;
+        break;
+
+      default:
+        message = "Unknown Switch Detected";
         msgFlag = true;
         break;
     }
@@ -379,13 +410,14 @@ void loop()
 
 
   // screen update loop  - continously call the current screen
+
   switch (menuIndex)
   {
-    case 0:
+    case EQ_SCREEN:
       doEqScreen();
       break;
 
-    case 1:
+    case COMPRESSOR_SCREEN:
       if (!initialScreenDrawn)
       {
         drawInitialCompressorScreen();
@@ -395,30 +427,38 @@ void loop()
         updateCompressorScreen();
       break;
 
-    case 2:
+    case TREMOLO_SCREEN:
       if (!initialScreenDrawn)
         drawInitialTremoloScreen();
       else
         updateTremoloScreen();
       break;
 
-    case 3:
+    case FLANGER_SCREEN:
       if (!initialScreenDrawn)
         drawInitialFlangerScreen();
       else
         updateFlangerScreen();
       break;
 
-    case 4:
+    case REVERB_SCREEN:
       doReverbScreen();
       break;
 
-    case 5:
+    case INPUT_SCREEN:
       if (!initialScreenDrawn)
         drawInputLevelScreen();
       else
         updateInputLevelScreen();
       break;
+
+
+    case DELAY_SCREEN:
+      doDelayScreen();
+      break;
+
+    default:
+      printValue("Error: Invalid Screen Selection", menuIndex);
   }
   cfg.lastMenu = menuIndex;
 
@@ -448,6 +488,7 @@ void loop()
 
     // flag to draw the initial screen
     initialScreenDrawn = false;
+    cfg.lastMenu = menuIndex;
   }
 
   // is there a message to display?
@@ -459,25 +500,12 @@ void loop()
     initialScreenDrawn = false;
   }
 
-#ifdef USE_SERIAL_CMDS
-  // check for incoming data on serial port
-  if (Serial.available())
-  {
-    // read 1st character, preserving the rest
-    char c = Serial.read();
-
-    // filter out non-printable characters
-    if (c > 32 && c < 127)
-    {
-      Serial.print("Serial Cmd ->"); Serial.println(c);
-      handleSerialCommand(c);
-    }
-  }
-#endif
+  checkSerial();
 
   //uint32_t end = micros();
   //Serial.println(end - start);
 
+  // slow down loop
   delay(50);
 }
 
@@ -490,13 +518,6 @@ long readParamEncoder()
 {
   // read encoder & divide results by 4 to slow down
   paramEncVal = paramEncoder.read() >> 2;
-
-  //  if (abs(lastParamEncVal - paramEncVal) > 2)
-  //  {
-  //    Serial.print("Param Encoder = ");
-  //    Serial.println(paramEncVal);
-  //  }
-
   return paramEncVal;
 }
 
@@ -506,13 +527,6 @@ long readValueEncoder()
 {
   // read encoder & divide results by 4 to slow down
   valEncVal = valueEncoder.read() >> 2;
-
-  //  if (abs(lastValEncVal - valEncVal) > 2)
-  //  {
-  //    Serial.print("Value Encoder = ");
-  //    Serial.println(valEncVal);
-  //  }
-
   return valEncVal;
 }
 
@@ -530,26 +544,42 @@ void readMixPot()
   // 8 averages
   for (uint8_t i = 0; i < 8; i++)
     pot += analogRead(BALANCE_POT);
-
   pot /= 8;
+  pot -= 4;
 
   // ignore changes of less than 2 counts
   delta = pot - LastMixPotVal;
   if (abs(delta) > 2)
   {
-    // convert 0 to 1023 to 0 to 1.0
-    wet = (float)pot / 1023.0;
 
-    // wet drops from 100% to 50% as effect goes up
-    // based on subjective listening
-    dry = 1.0 - (wet / 2.0);
-#ifdef DEBUG_MODE
+    // convert 0 to 1023 to 0 to 1.0
+    wet = (float)pot / 1020.0;
+
+    // dry channel stays at 100% while wet goes 0% to 100%
+    //dry = 1.0;
+
+    // dry goes from 100% to 50% while wet goes 0% to 100%
+    //dry = 1.0 - (wet / 2.0);
+
+    // dry goes from 100% to 0% while wet goes 0% to 100%
     dry = 1.0 - wet;
-#endif
+
+    dry = constrain(dry, 0, 1.0);
+    wet = constrain(wet, 0, 1.0);
 
     // Mixer 3 changes wet level based on mix pot
-    mixer3.gain(DRY_CH, dry);
-    mixer3.gain(WET_CH, wet);
+    mixer3.gain(0, dry);
+
+    if (reverbActive)
+    {
+      mixer3.gain(1, wet);
+      mixer3.gain(2, 0);
+    }
+    else
+    {
+      mixer3.gain(1, 0);
+      mixer3.gain(2, wet);
+    }
 
     printValue("dry", dry);
     printValue("wet", wet);
@@ -565,18 +595,16 @@ void readWahWahPot()
   int pot = 0;
   int delta;
 
-  // average 8 readings
-  for (uint8_t i = 0; i < 8; i++)
-    pot += analogRead(WAH_WAH_POT);
-
-  pot /= 8;
+  // read pot
+  pot = analogRead(WAH_WAH_POT);
 
   // ignore changes of less than 2 counts
   delta = pot - LastWahWahPotVal;
   if (abs(delta) > 2)
   {
-    // scale to +/- 1.0 and set dc source
-    float val = -1.0 + ((float)pot / 512.0);
+    // scale from -1.0 to +1.0 and set dc source
+    float val = -1.0 + ((float)pot / 500.0);
+    val = constrain(val, -1.0, 1.0);
     dc2.amplitude(val);
     LastWahWahPotVal = pot;
 
@@ -609,6 +637,9 @@ uint8_t readButtons()
   uint8_t temp = 0;
   uint8_t button = 0;
 
+  // turn off activity led
+  digitalWrite(TEST_LED, OFF);
+
   // buttons are inverted and on lower 4 bits
   button = ~PCF.read8() & 0x0F;
 
@@ -618,25 +649,29 @@ uint8_t readButtons()
   // check how long button is down
   start = millis();
   temp = button;
+
   // loop until button is released
   while (temp != 0)
   {
     temp = ~PCF.read8() & 0x0F;
     now = millis();
-    //Serial.print("Button = 0x"); Serial.println(temp, HEX);
-    //Serial.print("delta t = "); Serial.println(now - start);
+
+    // turn on led when long press detected
+    if (now - start > 1500)
+      digitalWrite(TEST_LED, ON);
     delay(20);
   }
 
   // if button down > 1.5 secs, its a 'long' press
   if (now - start > 1500)
   {
-    //Serial.println("long press");
-    //set upper bit as a flag
+    printValue("long press detected");
     button += 0x80;
   }
+  digitalWrite(TEST_LED, OFF);
 
-  Serial.print("Button = 0x"); Serial.println(button, HEX);
+  Serial.print("Button = 0x");
+  Serial.println(button, HEX);
   return button;
 }
 
@@ -646,148 +681,160 @@ uint8_t readButtons()
 void startGuitarTuner()
 {
   // turn off effects mix
-  mixer3.gain(DRY_CH, 1.0);
-  mixer3.gain(WET_CH, 0.0);
-  mixer3.gain(TONE_CH, 0.0);
+  mixer3.gain(DRY_CH,           1.0);
+  mixer3.gain(WET_NO_REVERB_CH, 0.0);
+  mixer3.gain(WET_REVERB,       0.0);
 
   // launch the guitar tuner
   guitarTuner();
 
-  // done with tuner, reset stuff
+  // must be done with tuner, reset stuff
 
   // reset mix
   readMixPot();
 
   // go to menu screen
   initialScreenDrawn = false;
-  menuIndex = 0;
+  menuIndex = cfg.lastMenu;
 }
 
 
 
-// *** Effects Control ***
-
-void togglecomp()
+void playTone()
 {
-  if (cfg.compEnabled)
-    disableCompressor();
-  else
-    enableCompressor();
-}
+  // enable mixer channel & leave on for now
+  Serial.println("Playing Tone");
 
-
-
-void toggleReverb()
-{
-  if (reverbActive)
-  {
-    disableReverb();
-    PCF.write(REVERB_LED, LED_OFF);
-  }
-  else
-  {
-    enableReverb();
-    PCF.write(REVERB_LED, LED_ON);
-  }
-}
-
-
-
-void toggleFlanger()
-{
-  if (flangerActive)
-  {
-    disableFlanger();
-    PCF.write(FLANGER_LED, LED_OFF);
-  }
-  else
-  {
-    enableFlanger();
-    PCF.write(FLANGER_LED, LED_ON);
-  }
-}
-
-
-
-void toggleTremolo()
-{
-  if (tremoloActive)
-  {
-    disableTremolo();
-    PCF.write(TREMOLO_LED, LED_OFF);
-  }
-  else
-  {
-    enableTremolo();
-    PCF.write(TREMOLO_LED, LED_ON);
-  }
-}
-
-
-
-void toggleWahWah()
-{
-  if (wahWahActive)
-  {
-    // turn off
-    disableWahWah();
-    PCF.write(WAH_WAH_LED, LED_OFF);
-  }
-  else
-  {
-    // turn on
-    enableWahWah();
-    PCF.write(WAH_WAH_LED, LED_ON);
-  }
-}
-
-
-
-
-void playNote()
-{
+  // tone is gated using an envelope effect
   envelope1.noteOn();
   delay(36);
   envelope1.noteOff();
 }
 
 
-void handleSerialCommand(char c)
+
+void playLongTone()
 {
-  switch (c)
+  // enable mixer channel & leave on for now
+  Serial.println("Playing Tone");
+
+  //mixer5.gain(0, 1.0);
+  //mixer5.gain(1, 1.0);
+
+  // tone is gated using an envelope effect
+  envelope1.noteOn();
+
+  // read pots while playing tone
+  for (int j = 0; j < 1000; j++)
   {
-    case 'p':
-      printConfig();
-      break;
-
-    case 'm':
-      printAudioMemUsage();
-      break;
-
-    case 'n':
-      playNote();
-      break;
-
-    case 'c':
-      toggleCompressor();
-      break;
-
-    case 'd':
-      setDelay(0, 500, 1.0);
-      setDelay(1, 100, 0.0);
-      setDelay(2, 0, 0.0);
-      setDelay(3, 0, 0.0);
-
-      showDelays();
-      enableDelayer();
-      break;
-
-    case 'D':
-      disableDelayer();
-      break;
-
-
-    default:
-      Serial.println(F("I'm sorry Dave, I didn't get that"));
+    readMixPot();
+    readWahWahPot();
+    delay(10);
   }
+
+  envelope1.noteOff();
+}
+
+
+
+void checkSerial()
+{
+  // check for incoming data on serial port
+  if (Serial.available())
+  {
+    // read 1st character, preserving the rest
+    char c = Serial.read();
+
+    // filter out non-printable characters
+    if (c > 32 && c < 127)
+    {
+      Serial.print("Serial Cmd ->"); Serial.println(c);
+
+      switch (c)
+      {
+        case 'p':
+          printConfig();
+          break;
+
+        case 'm':
+          printAudioMemUsage();
+          break;
+
+        case 's':
+          printStatus();
+          break;
+
+        case 't':
+          playTone();
+          break;
+
+        case 'l':
+          playLongTone();
+          break;
+
+        case 'd':
+          devMode = !devMode;
+          break;
+
+        case 'C':
+          toggleCompressor();
+          break;
+
+        case 'D':
+          toggleDelayer();
+          break;
+
+        case 'R':
+          toggleReverb();
+          break;
+
+        case 'T':
+          toggleTremolo();
+          break;
+
+        case 'F':
+          toggleFlanger();
+          break;
+
+        case 'W':
+          toggleWahWah();
+          break;
+
+
+
+        case '?':
+          Serial.println(F("p: Print config"));
+          Serial.println(F("m: print Memory usage"));
+          Serial.println(F("s: print effects Status"));
+          Serial.println(F("t: play test Tone"));
+          Serial.println(F("l: play long test Tone"));
+          Serial.println(F("d: toggle Dev mode"));
+
+          Serial.println(F("C: toggle Compressor"));
+          Serial.println(F("D: toggle Delayer"));
+          Serial.println(F("R: toggle Reverb"));
+          Serial.println(F("F: toggle Flanger"));
+          Serial.println(F("T: toggle Tremolo"));
+          Serial.println(F("W: toggle WahWah"));
+
+          Serial.println(F("?: print help"));
+          Serial.println();
+          break;
+
+        default:
+          Serial.println(F("I'm sorry Dave, I afraid I can't do that"));
+      }
+    }
+  }
+}
+
+
+
+void printStatus()
+{
+  printValue("reverb Active", reverbActive);
+  printValue("flanger Active", flangerActive);
+  printValue("delayer Active", delayerActive);
+  printValue("tremolo Active", tremoloActive);
+  printValue("wahWah Active", wahWahActive);
 }
