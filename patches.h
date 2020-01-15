@@ -10,16 +10,19 @@
 
 */
 
+
+
 #ifndef PATCHES_H
 #define PATCHES_H
 
-// use these names in the code so if config
+// use these names in the code if you want so if config
 // changes, you only have to adjust these
 
 // mixer names
 #define EFFECT_MIXER   mixer1
 #define TREMOLO_MIXER  mixer2
 #define MIX_MIXER      mixer3
+#define DELAY_MIXER    mixer4
 
 // mixer 1 channel definitions
 #define REVERB      0
@@ -35,36 +38,45 @@
 #define DRY_CH     0
 #define WET_CH     1
 #define TONE_CH    2
+#define DELAY_CH   3
+
+// mixer 4 channel definitions
+#define DELAY1     0
+#define DELAY2     1
+#define DELAY3     2
+#define DELAY4     3
 
 // off or on macros
-//#define UNITY_GAIN 1.0
 #define ZERO_GAIN   0
 
 // ----------------------- Insert GUI Tool Output -----------------------------------
+
 #include <Audio.h>
 #include <Wire.h>
 #include <SPI.h>
-//#include <SD.h>
+#include <SD.h>
 #include <SerialFlash.h>
 
 // GUItool: begin automatically generated code
-AudioInputI2S            i2s1;           //xy=120.82356262207031,216.00001525878906
-AudioSynthWaveformDc     dc2;            //xy=120.82356262207031,300.0000457763672
-AudioSynthWaveformSine   sine1;          //xy=126.82356262207031,382.0000457763672
-AudioSynthWaveformDc     dc1;            //xy=126.82356262207031,441.0000457763672
-AudioSynthWaveformSine   sine2;          //xy=129.8235626220703,550.0000152587891
-AudioMixer4              mixer2;         //xy=325.82359313964844,459.00001525878906
-AudioAnalyzePeak         peak1;          //xy=400.8235626220703,55.00001525878906
-AudioAnalyzeNoteFrequency notefreq1;      //xy=400.8235626220703,116.00001525878906
-AudioEffectFlange        flange1;        //xy=495.8235626220703,357.00001525878906
-AudioEffectFreeverb      freeverb1;      //xy=496.8235626220703,233.00001525878906
-AudioFilterStateVariable filter1;        //xy=496.8235626220703,295.00001525878906
-AudioEffectMultiply      multiply1;      //xy=497.8235626220703,431.00001525878906
-AudioEffectEnvelope      envelope1;      //xy=762.8235626220703,547.0000152587891
-AudioMixer4              mixer1;         //xy=778.8235626220703,289.0000457763672
-AudioMixer4              mixer3;         //xy=982.8236236572266,196.00001525878906
-AudioOutputI2S           i2s2;           //xy=1164.8235626220703,251.00001525878906
-AudioAnalyzePeak         peak2;          //xy=1173.8235168457031,89.82353210449219
+AudioInputI2S            i2s1;           //xy=150,195
+AudioSynthWaveformDc     dc2;            //xy=150,279
+AudioSynthWaveformSine   sine1;          //xy=156,361
+AudioSynthWaveformDc     dc1;            //xy=156,420
+AudioSynthWaveformSine   sine2;          //xy=159,529
+AudioMixer4              mixer2;         //xy=355,438
+AudioAnalyzePeak         peak1;          //xy=430,34
+AudioAnalyzeNoteFrequency notefreq1;      //xy=430,95
+AudioEffectFlange        flange1;        //xy=525,336
+AudioEffectFreeverb      freeverb1;      //xy=526,212
+AudioFilterStateVariable filter1;        //xy=526,274
+AudioEffectMultiply      multiply1;      //xy=527,410
+AudioEffectEnvelope      envelope1;      //xy=726,526
+AudioMixer4              mixer1;         //xy=808,268
+AudioEffectDelay         delay1;         //xy=1022,491
+AudioMixer4              mixer3;         //xy=1132,181
+AudioMixer4              mixer4;         //xy=1213,487
+AudioAnalyzePeak         peak2;          //xy=1301,98
+AudioOutputI2S           i2s2;           //xy=1317,229
 AudioConnection          patchCord1(i2s1, 0, multiply1, 0);
 AudioConnection          patchCord2(i2s1, 0, flange1, 0);
 AudioConnection          patchCord3(i2s1, 0, notefreq1, 0);
@@ -72,23 +84,30 @@ AudioConnection          patchCord4(i2s1, 0, peak1, 0);
 AudioConnection          patchCord5(i2s1, 0, filter1, 0);
 AudioConnection          patchCord6(i2s1, 0, freeverb1, 0);
 AudioConnection          patchCord7(i2s1, 0, mixer3, 0);
-AudioConnection          patchCord8(dc2, 0, filter1, 1);
-AudioConnection          patchCord9(sine1, 0, mixer2, 0);
-AudioConnection          patchCord10(dc1, 0, mixer2, 1);
-AudioConnection          patchCord11(sine2, envelope1);
-AudioConnection          patchCord12(mixer2, 0, multiply1, 1);
-AudioConnection          patchCord13(flange1, 0, mixer1, 2);
-AudioConnection          patchCord14(freeverb1, 0, mixer1, 0);
-AudioConnection          patchCord15(filter1, 0, mixer1, 1);
-AudioConnection          patchCord16(multiply1, 0, mixer1, 3);
-AudioConnection          patchCord17(envelope1, 0, mixer3, 2);
-AudioConnection          patchCord18(mixer1, 0, mixer3, 1);
-AudioConnection          patchCord19(mixer3, 0, i2s2, 0);
-AudioConnection          patchCord20(mixer3, 0, i2s2, 1);
-AudioConnection          patchCord21(mixer3, peak2);
-AudioControlSGTL5000     audioShield;    //xy=125.82356262207031,686.0000152587891
+AudioConnection          patchCord8(i2s1, 0, delay1, 0);
+AudioConnection          patchCord9(dc2, 0, filter1, 1);
+AudioConnection          patchCord10(sine1, 0, mixer2, 0);
+AudioConnection          patchCord11(dc1, 0, mixer2, 1);
+AudioConnection          patchCord12(sine2, envelope1);
+AudioConnection          patchCord13(mixer2, 0, multiply1, 1);
+AudioConnection          patchCord14(flange1, 0, mixer1, 2);
+AudioConnection          patchCord15(freeverb1, 0, mixer1, 0);
+AudioConnection          patchCord16(filter1, 0, mixer1, 1);
+AudioConnection          patchCord17(multiply1, 0, mixer1, 3);
+AudioConnection          patchCord18(envelope1, 0, mixer3, 2);
+AudioConnection          patchCord19(mixer1, 0, mixer3, 1);
+AudioConnection          patchCord20(delay1, 0, mixer4, 0);
+AudioConnection          patchCord21(delay1, 1, mixer4, 1);
+AudioConnection          patchCord22(delay1, 2, mixer4, 2);
+AudioConnection          patchCord23(delay1, 3, mixer4, 3);
+AudioConnection          patchCord24(mixer3, 0, i2s2, 0);
+AudioConnection          patchCord25(mixer3, 0, i2s2, 1);
+AudioConnection          patchCord26(mixer3, peak2);
+AudioConnection          patchCord27(mixer4, 0, mixer3, 3);
+AudioControlSGTL5000     audioShield;    //xy=155,665
 // GUItool: end automatically generated code
 
+// GUItool: end automatically generated code
 
 //---------------------------------------------------------------------------------------
 

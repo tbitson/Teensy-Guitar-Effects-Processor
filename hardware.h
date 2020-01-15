@@ -44,6 +44,16 @@
 // volume pot:    15              (A1)
 // sd card:        7, 10, 12, 14  (SPI)
 // ext sram:       6,  7, 12, 14  (SPI)
+//
+// SPI used for external delay. With current design.
+// pins 7, 12, and 14 are shared with TFT LCD, which
+// ssems to cause problems getting the LCD started
+//
+// Pin  Signal
+//   6  CS
+//   7  MOSI
+//  12  MISO
+//  14  SCK
 
 
 // TFT LCD SPI pins (255 = always on)

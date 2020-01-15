@@ -198,17 +198,17 @@ void drawInitialCompressorScreen()
   tft.print("100 ms");
 
   // Draw 3 sliders
-  pos = 182 - (int)(cfg.compThreshold * (182.0 / -96.0)); // scale 0 to -96 into  182 -> 0
+  pos = 182 - (int)(cfg.compThreshold * (182.0 / -96.0)); 
   tft.fillRoundRect(145, 0, 29, 192, 8, GUI_SHAPE_COLOR);
   tft.fillRoundRect(145, pos, 29, 10, 8, GUI_ITEM_COLOR);
   tft.fillRect(145, pos + 3, 29, 4, GUI_FILL_COLOR);
 
-  pos = 182 - ((int)(cfg.compAttack * (182.0 / 1024.0))); // scale 0->1024 into 182 ->0
+  pos = 182 - ((int)(cfg.compAttack * 182));
   tft.fillRoundRect(203, 0, 29, 192, 8, GUI_SHAPE_COLOR);
   tft.fillRoundRect(203, pos, 29, 10, 8, GUI_ITEM_COLOR);
   tft.fillRect(203, pos + 3, 29, 4, GUI_FILL_COLOR);
 
-  pos = 182 - ((int)(cfg.compDecay * (182.0 / 2048.0))); // scale 0->2048 into 182 ->0
+  pos = 182 - ((int)(cfg.compDecay * 182));
   tft.fillRoundRect(261, 0, 29, 192, 8, GUI_SHAPE_COLOR);
   tft.fillRoundRect(261, pos, 29, 10, 8, GUI_ITEM_COLOR);
   tft.fillRect(261, pos + 3, 29, 4, GUI_FILL_COLOR);
@@ -413,7 +413,7 @@ void updateExpanderResponse()
 void updateCompressorThreshold()
 {
   int pos;
-  cfg.compThreshold -= CompressorAdjustValue / 10.0;
+  cfg.compThreshold -= CompressorAdjustValue / 2.0;
   cfg.compThreshold = constrain(cfg.compThreshold, -96, 0);
 
   pos = 182 - (int) ((float) cfg.compThreshold * (182.0 / -96.0)); // scale 0->65535 into  182 ->0
@@ -431,7 +431,8 @@ void updateCompressorAttack()
 {
   int pos;
   cfg.compAttack += CompressorAdjustValue / 10;
-  cfg.compAttack = constrain(cfg.compAttack, 0, 1);   // use only 1/4 of 12-bit range of SGTL5000 (about 800 dB/sec)
+  cfg.compAttack = constrain(cfg.compAttack, 0, 1);
+  
   pos = 182 - ((int)(cfg.compAttack * 182));  // scale 0 -> 1024 into 182 -> 0
   tft.fillRoundRect(203, 0, 29, 192, 8, GUI_SHAPE_COLOR);
   tft.fillRoundRect(203, pos, 29, 10, 8, GUI_ITEM_COLOR);
@@ -446,9 +447,9 @@ void updateCompressorDecay()
 {
   int pos;
   cfg.compDecay += CompressorAdjustValue / 10;
-  cfg.compDecay = constrain(cfg.compDecay, 0, 1);   // use only 1/2 of 12-bit range of SGTL5000 (about 100 dB/sec)
+  cfg.compDecay = constrain(cfg.compDecay, 0, 1);
 
-  pos = 182 - ((int)(cfg.compDecay));   // scale 0->2048 into 182 ->0
+  pos = 182.0 - ((int)(cfg.compDecay * 182)); 
   tft.fillRoundRect(261, 0, 29, 192, 8, GUI_SHAPE_COLOR);
   tft.fillRoundRect(261, pos, 29, 10, 8, GUI_ITEM_COLOR);
   tft.fillRect(261, pos + 3, 29, 4, GUI_FILL_COLOR);

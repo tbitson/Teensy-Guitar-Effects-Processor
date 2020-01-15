@@ -4,7 +4,7 @@
     This version only works with Teensy 3.5 or 3.6
     Build settings: CPU '120 MHz', USB Type 'Serial',  Optimize 'Fast',
 
-    Version 1.6.1  08 Jan2020
+    Version 1.6.2  11Jan2020
 
     Arduino version last used: 1.8.10
     Teensyduino version last used: 1.48
@@ -16,7 +16,7 @@
     the audio library, Arduino, and Teensyduino
 
     Version 1.4 switched to the 'freeverb' reverb engine, which may have
-    exceeded Teensy 3.2 memory capability, so switched tro teensy 3.5/3.6
+    exceeded Teensy 3.2 memory capability, so switched to teensy 3.5/3.6
 
     Version 1.5 was a complete organization change, some gui code rewritten,
     added multi-delay effect and screen, converted config to struct. This
@@ -31,11 +31,17 @@
  ********************************************************************************/
 
 
-const String VERSION = "Version 1.6.1";
+const String VERSION = "Version 1.6.2";
 
 
 // uncomment debug print to enable helpful diagnostic print-outs
 //#define DEBUG_PRINT
+
+// allow serial commands (not fully tested)
+#define USE_SERIAL_CMDS
+
+// teensy bug requires to define here
+#define GAIN_UNITY  1.0
 
 // audio patchpanel from audio tool
 #include "patches.h"
@@ -53,7 +59,6 @@ const String VERSION = "Version 1.6.1";
 #include "hardware.h"   // hardware connections
 #include "utils.h"      // tft routines and misc
 
-#define UNITY_GAIN 1.0
 
 // prototypes
 long readParamEncoder();
@@ -86,6 +91,7 @@ uint16_t LastWahWahPotVal;
 #include "Compressor.h"
 #include "EQ.h"
 #include "Reverb.h"
+#include "Delayer.h"
 #include "Flanger.h"
 #include "Tremolo.h"
 #include "WahWah.h"
@@ -137,8 +143,8 @@ void setup()
   // wait for cpu to initialize
   delay(1000);
 
-  Serial.begin(115200);
-  AudioMemory(140);
+  Serial.begin(57600);
+  AudioMemory(224);
 
   // configure hardware i/o pins
   pinMode(TUNER_SWITCH_PIN, INPUT_PULLUP);
@@ -157,9 +163,9 @@ void setup()
   // check for tuner button down, if so, enter dev mode
   if (digitalRead(TUNER_SWITCH_PIN) == 0)
   {
-      devMode = true;
-      Serial.println("Dev Mode Enabled");
-    }
+    devMode = true;
+    Serial.println("Dev Mode Enabled");
+  }
 
   // load configuration
   loadConfig();
@@ -194,6 +200,7 @@ void setup()
   initCompressor();
   initEqualizer();
   initReverb();
+  initDelayer();
   initTremolo();
   initFlanger();
   initWahWah();
@@ -202,9 +209,10 @@ void setup()
 
   // Mixer 3 controls dry, wet, and tone levels
   // test tone is on ch. 2 of this mixer
-  mixer3.gain(DRY_CH,  1.0);  // dry
-  mixer3.gain(WET_CH,  0.0);  // wet
-  mixer3.gain(TONE_CH, 1.0);  // tone
+  mixer3.gain(DRY_CH,   1.0);  // dry
+  mixer3.gain(WET_CH,   0.0);  // wet
+  mixer3.gain(TONE_CH,  1.0);  // tone
+  mixer3.gain(DELAY_CH, 0.0);  // tone
 
   // configure a sine wave for the test tone
   sine2.frequency(1000);  // 1000 Hz
@@ -343,6 +351,29 @@ void loop()
         message = wahWahActive ? "Wah-Wah ON" : "Wah-Wah OFF";
         msgFlag = true;
         break;
+
+      case 0x81:  // delay
+        Serial.println("Toggle Delay");
+        setDelay(0, 500, 1.0);
+        setDelay(1, 100, 0.0);
+        setDelay(2, 0, 0.0);
+        setDelay(3, 0, 0.0);
+
+        if (delayerEnabled)
+        {
+          disableDelayer();
+          PCF.write(REVERB_LED, LED_OFF);
+        }
+        else
+        {
+          enableDelayer();
+          PCF.write(REVERB_LED, LED_ON);
+        }
+        showDelays();
+
+        message = delayerEnabled ? "Delayer ON" : "Delayer OFF";
+        msgFlag = true;
+        break;
     }
   }
 
@@ -428,6 +459,7 @@ void loop()
     initialScreenDrawn = false;
   }
 
+#ifdef USE_SERIAL_CMDS
   // check for incoming data on serial port
   if (Serial.available())
   {
@@ -441,6 +473,7 @@ void loop()
       handleSerialCommand(c);
     }
   }
+#endif
 
   //uint32_t end = micros();
   //Serial.println(end - start);
@@ -739,7 +772,22 @@ void handleSerialCommand(char c)
       toggleCompressor();
       break;
 
+    case 'd':
+      setDelay(0, 500, 1.0);
+      setDelay(1, 100, 0.0);
+      setDelay(2, 0, 0.0);
+      setDelay(3, 0, 0.0);
+
+      showDelays();
+      enableDelayer();
+      break;
+
+    case 'D':
+      disableDelayer();
+      break;
+
+
     default:
-      Serial.println("I'm sorry Dave, I didn't get that");
+      Serial.println(F("I'm sorry Dave, I didn't get that"));
   }
 }

@@ -217,19 +217,19 @@ void printConfig()
   Serial.print(F("Comp Threshold = "));   Serial.println(cfg.compThreshold);
   Serial.print(F("Comp Attack    = "));   Serial.println(cfg.compAttack);
   Serial.print(F("Comp Decay     = "));   Serial.println(cfg.compDecay);
-  delay(100);
+  delay(200);
   Serial.print(F("Tremolo Speed  = "));   Serial.println(cfg.tremoloSpeed);
   Serial.print(F("Tremolo Depth  = "));   Serial.println(cfg.tremoloDepth);
   Serial.print(F("Flanger Speed  = "));   Serial.println(cfg.flangerSpeed);
   Serial.print(F("Flanger Depth  = "));   Serial.println(cfg.flangerDepth);
-  delay(100);
+  delay(200);
   Serial.print(F("Reverb Volume   = "));  Serial.println(cfg.reverbVolume);
   Serial.print(F("Reverb Roomsize = "));  Serial.println(cfg.reverbRoomsize);
   Serial.print(F("Reverb Damping  = "));  Serial.println(cfg.reverbDamping);
   Serial.print(F("Input Level Adj = "));  Serial.println(cfg.inputValueAdj);
   Serial.print(F("Last Menu       = "));  Serial.println(cfg.lastMenu);
   Serial.println();
-  delay(500);
+  delay(200);
 }
 
 

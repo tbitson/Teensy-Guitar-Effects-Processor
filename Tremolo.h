@@ -37,8 +37,8 @@ void initTremolo()
   dc1.amplitude(0.7);
 
   // mix sine with pot dc level
-  mixer2.gain(0, UNITY_GAIN);
-  mixer2.gain(1, UNITY_GAIN);
+  mixer2.gain(0, GAIN_UNITY);
+  mixer2.gain(1, GAIN_UNITY);
 
   disableTremolo();
   

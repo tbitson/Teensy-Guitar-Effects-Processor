@@ -135,8 +135,8 @@ void initLCD()
   tft.begin();
   delay(100);
   tft.setRotation(3);
-  tft.fillScreen(GUI_FILL_COLOR);
   delay(100);
+  tft.fillScreen(GUI_FILL_COLOR);
 }
 
 

@@ -129,9 +129,9 @@ void printAudioMemUsage()
 
 
 // debugging aid - call to reboot teensy
-#define RESTART_ADDR 0xE000ED0C
-#define READ_RESTART() (*(volatile uint32_t *)RESTART_ADDR)
-#define WRITE_RESTART(val) ((*(volatile uint32_t *)RESTART_ADDR) = (val))
+//#define RESTART_ADDR 0xE000ED0C
+//#define READ_RESTART() (*(volatile uint32_t *)RESTART_ADDR)
+//#define WRITE_RESTART(val) ((*(volatile uint32_t *)RESTART_ADDR) = (val))
 
 void rebootTeensy()
 {
@@ -153,9 +153,10 @@ void rebootTeensy()
     }
     Serial.println("Reboot Cancelled by Timeout");
   }
-  */
+ 
   WRITE_RESTART(0x5FA0004);
   Serial.println("bye!");
+  */
 }
 
 
