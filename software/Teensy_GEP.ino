@@ -64,7 +64,7 @@
     known bugs & todo:
     1) Hang on boot: seems to be a conflict between LCD and audio board serial flash that
     causes an intermittant hang on boot. Startup sequence rearranged, seems better but not fixed.
-    2) Compressor - bug in audio lib, see pull #210, manually applied
+    2) Compressor - bug in teensy audio lib, see pull #210, manually applied
     3) High freq noise under some condtions - seems to be coupled through USB
     todo: decide if current values are kept in cfg.xxx or in the class (probably class)
     i.e. the config code is now somewhat dated.
@@ -72,7 +72,7 @@
     todo: re-do the guiItems now that they mostly work
     todo: add indicator when bypass switch is in bypass
     todo: consider ditching the mix pot; since each effect has it's own volume
-    control (usally a mixer channel), its redundant. Set each effect on its own.
+          control (usally a mixer channel), its redundant. Set each effect on its own.
     todo: move slider code from each effect into guiItems.h
     todo: refactor guiItems.h to move lcd code into a new file 
 
